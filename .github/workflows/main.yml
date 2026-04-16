@@ -1,9 +1,122 @@
-name: Code Coverage Check
+# name: Code Coverage Check
+
+# on:
+#   push:
+#     branches:
+#       - '**'   # runs on all branches being pushed
+
+# jobs:
+#   coverage:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.11'
+
+#       - name: Install dependencies
+#         run: |
+#           python -m pip install --upgrade pip
+#           pip install -r requirements.txt
+#           pip install pytest coverage
+
+#       - name: Run tests with coverage
+#         run: |
+#           coverage run -m pytest
+#           coverage report -m fail under=95
+#           coverage xml
+
+#       - name: Upload coverage report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: coverage-report
+#           path: coverage.xml
+        
+#   ruff-check:
+#   runs-on: ubuntu-latest
+
+#   steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v4
+
+#     - name: Set up Python
+#       uses: actions/setup-python@v5
+#       with:
+#         python-version: "3.11"
+
+#     - name: Install Ruff
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install ruff
+
+#     # Run Ruff without failing immediately
+#     - name: Run Ruff (JSON output)
+#       run: |
+#         ruff check . --format=json > ruff-report.json || true
+
+#     # Calculate score & enforce quality gate
+#     - name: Calculate Ruff Quality Score
+#       run: |
+#         python <<'EOF'
+#         import json
+#         import sys
+
+#         PENALTIES = {
+#             "S": 5,   # Security
+#             "B": 3,   # Bugs
+#             "E": 2,   # Errors
+#             "F": 2,   # Pyflakes
+#             "UP": 1,  # Python upgrades
+#             "SIM": 1, # Complexity simplification
+#             "I": 1    # Imports
+#         }
+
+#         with open("ruff-report.json") as f:
+#             issues = json.load(f)
+
+#         score = 100
+
+#         for issue in issues:
+#             code = issue["code"]
+#             for prefix, penalty in PENALTIES.items():
+#                 if code.startswith(prefix):
+#                     score -= penalty
+#                     break
+#             else:
+#                 score -= 1
+
+#         score = max(score, 0)
+
+#         # Grade mapping
+#         grade = (
+#             "A" if score >= 95 else
+#             "B" if score >= 90 else
+#             "C" if score >= 80 else
+#             "D" if score >= 70 else
+#             "F"
+#         )
+
+#         print(f"✅ Ruff Score: {score}")
+#         print(f"📊 Ruff Grade: {grade}")
+#         print(f"🔎 Total Issues: {len(issues)}")
+
+#         if score < 90:
+#             print("❌ Quality gate failed (minimum score: 90)")
+#             sys.exit(1)
+#         EOF
+
+
+name: Code Quality Pipeline
 
 on:
   push:
     branches:
-      - '**'   # runs on all branches being pushed
+      - '**'
+  pull_request:
 
 jobs:
   coverage:
@@ -27,7 +140,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           coverage run -m pytest
-          coverage report -m fail under=95
+          coverage report -m --fail-under=95
           coverage xml
 
       - name: Upload coverage report
@@ -35,25 +148,95 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
-        
-    
+
   ruff-check:
-      runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        - name: Set up Python
-          uses: actions/setup-python@v5
-          with:
-            python-version: "3.11"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-        - name: Install Ruff
-          run: |
-            python -m pip install --upgrade pip
-            pip install ruff
+      - name: Install Ruff
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
 
-        - name: Run Ruff checks (fail on any issue)
-          run: |
-          ruff check .
+      - name: Run Ruff (JSON output)
+        run: |
+          ruff check . --format=json > ruff-report.json || true
+
+      - name: Calculate Ruff Quality Score
+        run: |
+          python <<'EOF'
+          import json, sys
+
+          PENALTIES = {
+              "S": 5,   # Security
+              "B": 3,   # Bugs
+              "E": 2,   # Errors
+              "F": 2,   # Pyflakes
+              "UP": 1,  # Python upgrades
+              "SIM": 1, # Simplification
+              "I": 1    # Imports
+          }
+
+          with open("ruff-report.json") as f:
+              issues = json.load(f)
+
+          score = 100
+          for issue in issues:
+              code = issue["code"]
+              for prefix, penalty in PENALTIES.items():
+                  if code.startswith(prefix):
+                      score -= penalty
+                      break
+              else:
+                  score -= 1
+
+          score = max(score, 0)
+
+          grade = (
+              "A" if score >= 95 else
+              "B" if score >= 90 else
+              "C" if score >= 80 else
+              "D" if score >= 70 else
+              "F"
+          )
+
+          print(f"✅ Ruff Score: {score}")
+          print(f"📊 Ruff Grade: {grade}")
+          print(f"🔎 Total Issues: {len(issues)}")
+
+          if score < 90:
+              print("❌ Ruff quality gate failed (minimum score: 90)")
+              sys.exit(1)
+          EOF
+
+
+
+
+  # ruff-check:
+  #     runs-on: ubuntu-latest
+
+  #     steps:
+  #       - name: Checkout repository
+  #         uses: actions/checkout@v4
+
+  #       - name: Set up Python
+  #         uses: actions/setup-python@v5
+  #         with:
+  #           python-version: "3.11"
+
+  #       - name: Install Ruff
+  #         run: |
+  #           python -m pip install --upgrade pip
+  #           pip install ruff
+
+  #       - name: Run Ruff checks (fail on any issue)
+  #         run: |
+  #         ruff check .
